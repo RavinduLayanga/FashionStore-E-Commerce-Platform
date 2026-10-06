@@ -181,6 +181,11 @@ async function getProductBySlugOrId(identifier) {
 
   const variantsWithStock = attachAvailableStock(product.variants);
 
+  // Calculate minPrice and maxPrice so it matches the list API
+  const prices = variantsWithStock.map((v) => v.price);
+  const minPrice = prices.length ? Math.min(...prices) : 0;
+  const maxPrice = prices.length ? Math.max(...prices) : 0;
+
   return {
     id: product.id,
     name: product.name,
@@ -189,6 +194,8 @@ async function getProductBySlugOrId(identifier) {
     category: product.category,
     images: product.images,
     variants: variantsWithStock,
+    minPrice,
+    maxPrice,
   };
 }
 
