@@ -40,7 +40,7 @@ export default function ProductClient({ product }) {
   }, [selectedColor, selectedSize, product.variants]);
 
   const handleAddToCart = () => {
-    if (selectedVariant) {
+    if (selectedVariant?.isAvailable) {
       addToCart(product, selectedVariant, 1);
     }
   };
@@ -150,10 +150,10 @@ export default function ProductClient({ product }) {
           {/* Add to Cart Button */}
           <button
             onClick={handleAddToCart}
-            disabled={!selectedSize}
+            disabled={!selectedVariant?.isAvailable}
             className="w-full bg-black text-white py-4 rounded-xl font-bold text-lg hover:bg-zinc-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {selectedSize ? "Add to Cart" : "Select a Size"}
+            {selectedVariant?.isAvailable ? "Add to Cart" : "Select a Size"}
           </button>
         </div>
       </div>

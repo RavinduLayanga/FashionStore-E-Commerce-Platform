@@ -1,8 +1,10 @@
 "use client";
 import { useCart } from "../context/CartContext";
 import { X, Plus, Minus, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function CartDrawer() {
+  const router = useRouter();
   const {
     cart,
     isCartOpen,
@@ -108,7 +110,13 @@ export default function CartDrawer() {
               <span>Total</span>
               <span>LKR {cartTotal.toLocaleString()}</span>
             </div>
-            <button className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-zinc-800 transition">
+            <button
+              onClick={() => {
+                setIsCartOpen(false);
+                router.push("/checkout");
+              }}
+              className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-zinc-800 transition"
+            >
               Proceed to Checkout
             </button>
           </div>

@@ -61,6 +61,13 @@ export function CartProvider({ children }) {
     setCart((prev) => prev.filter((item) => item.variant.id !== variantId));
   };
 
+  const clearCart = () => {
+    setCart([]);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("fashion_cart");
+    }
+  };
+
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const cartTotal = cart.reduce(
     (total, item) => total + item.variant.price * item.quantity,
@@ -74,6 +81,7 @@ export function CartProvider({ children }) {
         addToCart,
         updateQuantity,
         removeFromCart,
+        clearCart,
         cartCount,
         cartTotal,
         isMounted,
