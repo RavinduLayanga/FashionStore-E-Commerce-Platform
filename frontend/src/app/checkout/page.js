@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCart } from "../../context/CartContext";
 import { useRouter } from "next/navigation";
 
@@ -19,6 +19,8 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [payhereData, setPayhereData] = useState(null);
+  const payhereFormRef = useRef(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -51,23 +53,44 @@ export default function CheckoutPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Zod validation middleware usually sends an array of specific errors in `data.errors`
         const specificErrors = data.errors
           ? data.errors
               .map((e) => e.message || `${e.field} is invalid`)
               .join(" | ")
           : null;
-
         throw new Error(
           specificErrors || data.message || "Failed to place order",
         );
       }
 
-      setSuccess(true);
       clearCart();
+      setSuccess(true);
 
-      // If we had PayHere integrated, we would redirect to their gateway here.
-      // For WhatsApp, we can just show the success screen.
+      if (formData.paymentMethod === "WHATSAPP") {
+        const orderNumber = data.data.orderNumber;
+
+        let text = `*NEW ORDER* - ${orderNumber}\n\n`;
+        text += `*Customer:*\nName: ${formData.customerName}\nPhone: ${formData.phone}\nAddress: ${formData.address}\nCity: ${formData.city}\n\n`;
+        text += `*Items:*\n`;
+
+        cart.forEach((item, index) => {
+          text += `${index + 1}. ${item.product.name}\n`;
+          text += `   Color: ${item.variant.color}\n`;
+          text += `   Size: ${item.variant.size}\n`;
+          text += `   Quantity: ${item.quantity}\n`;
+          text += `   Price: LKR ${(item.variant.price * item.quantity).toLocaleString()}\n\n`;
+        });
+
+        text += `*Total:* LKR ${cartTotal.toLocaleString()}\n\n`;
+        text += `Please confirm this order.`;
+
+        const shopWhatsAppNumber =
+          process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "94770000000";
+        const whatsappUrl = `https://wa.me/${shopWhatsAppNumber}?text=${encodeURIComponent(text)}`;
+        window.open(whatsappUrl, "_blank");
+      } else if (formData.paymentMethod === "PAYHERE") {
+        setPayhereData(data.payhereConfig);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -75,9 +98,20 @@ export default function CheckoutPage() {
     }
   };
 
+  useEffect(() => {
+    if (payhereData && payhereFormRef.current) {
+      payhereFormRef.current.submit();
+    }
+  }, [payhereData]);
+
   if (!isMounted) return null;
 
   if (success) {
+    // Dynamic PayHere Action URL
+    const payhereActionUrl =
+      process.env.NEXT_PUBLIC_PAYHERE_CHECKOUT_URL ||
+      "https://sandbox.payhere.lk/pay/checkout";
+
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
@@ -91,6 +125,12 @@ export default function CheckoutPage() {
               Your order has been reserved for 30 minutes. We'll contact you
               shortly to confirm payment.
             </p>
+            <button
+              onClick={() => router.push("/")}
+              className="bg-black text-white px-8 py-3 rounded-xl font-bold hover:bg-zinc-800 transition"
+            >
+              Continue Shopping
+            </button>
           </>
         ) : (
           <>
@@ -100,15 +140,74 @@ export default function CheckoutPage() {
             <p className="text-zinc-600 text-lg mb-8">
               Please wait while we transfer you to our secure payment gateway.
             </p>
+
+            {/* Dynamic PayHere Form */}
+            {payhereData && (
+              <form
+                ref={payhereFormRef}
+                method="post"
+                action={payhereActionUrl}
+              >
+                <input
+                  type="hidden"
+                  name="merchant_id"
+                  value={payhereData.merchant_id}
+                />
+                <input
+                  type="hidden"
+                  name="return_url"
+                  value={payhereData.return_url}
+                />
+                <input
+                  type="hidden"
+                  name="cancel_url"
+                  value={payhereData.cancel_url}
+                />
+                <input
+                  type="hidden"
+                  name="notify_url"
+                  value={payhereData.notify_url}
+                />
+                <input
+                  type="hidden"
+                  name="order_id"
+                  value={payhereData.order_id}
+                />
+                <input type="hidden" name="items" value={payhereData.items} />
+                <input
+                  type="hidden"
+                  name="currency"
+                  value={payhereData.currency}
+                />
+                <input type="hidden" name="amount" value={payhereData.amount} />
+                <input
+                  type="hidden"
+                  name="first_name"
+                  value={payhereData.first_name}
+                />
+                <input
+                  type="hidden"
+                  name="last_name"
+                  value={payhereData.last_name}
+                />
+                <input type="hidden" name="email" value={payhereData.email} />
+                <input type="hidden" name="phone" value={payhereData.phone} />
+                <input
+                  type="hidden"
+                  name="address"
+                  value={payhereData.address}
+                />
+                <input type="hidden" name="city" value={payhereData.city} />
+                <input
+                  type="hidden"
+                  name="country"
+                  value={payhereData.country}
+                />
+                <input type="hidden" name="hash" value={payhereData.hash} />
+              </form>
+            )}
           </>
         )}
-
-        <button
-          onClick={() => router.push("/")}
-          className="bg-black text-white px-8 py-3 rounded-xl font-bold hover:bg-zinc-800 transition"
-        >
-          Continue Shopping
-        </button>
       </div>
     );
   }

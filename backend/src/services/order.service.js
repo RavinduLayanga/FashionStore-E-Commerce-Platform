@@ -122,7 +122,6 @@ async function finalizeOrderTransaction({
   amountCheck = null,
 }) {
   return await prisma.$transaction(async (tx) => {
-    // 1. OPERATION-LEVEL SERIALIZATION
     await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
 
     const order = await tx.order.findUnique({
@@ -138,7 +137,6 @@ async function finalizeOrderTransaction({
 
     const payment = order.payments[0];
 
-    // 2. IDEMPOTENCY: Verify payment record to safely handle duplicate webhooks
     if (expectedStatus === "PENDING_PAYMENT" && payment?.status === "SUCCESS") {
       console.log(
         `Payment for order ${orderId} already processed. Ignoring duplicate webhook.`,
@@ -146,7 +144,6 @@ async function finalizeOrderTransaction({
       return order;
     }
 
-    // 3. STRICT STATE VALIDATION
     if (order.status !== expectedStatus) {
       const err = new Error(
         `Order state mismatch. Expected ${expectedStatus}, got ${order.status}`,
@@ -155,7 +152,6 @@ async function finalizeOrderTransaction({
       throw err;
     }
 
-    // 4. PAYHERE AMOUNT/CURRENCY VERIFICATION (Using Prisma.Decimal)
     if (amountCheck) {
       const orderTotal = new Prisma.Decimal(order.totalAmount);
       const paidAmount = new Prisma.Decimal(amountCheck.amount);
@@ -173,7 +169,6 @@ async function finalizeOrderTransaction({
       }
     }
 
-    // 5. NULLABLE VARIANT DEFENSE
     const invalidItem = order.items.find((i) => !i.variantId);
     if (invalidItem) {
       throw new Error(
@@ -181,7 +176,6 @@ async function finalizeOrderTransaction({
       );
     }
 
-    // 6. VALIDATE RESERVATIONS (expiresAt <= now)
     const now = new Date();
     const hasExpiredReservations = order.reservations.some(
       (res) => res.status !== "ACTIVE" || res.expiresAt <= now,
@@ -195,7 +189,6 @@ async function finalizeOrderTransaction({
       throw err;
     }
 
-    // 7. DETERMINISTIC LOCKING & PHYSICAL STOCK CHECK
     const sortedVariantIds = [...order.items].map((i) => i.variantId).sort();
 
     for (const variantId of sortedVariantIds) {
@@ -215,13 +208,11 @@ async function finalizeOrderTransaction({
       }
     }
 
-    // 8. CONSUME RESERVATIONS
     await tx.inventoryReservation.updateMany({
       where: { orderId: order.id, status: "ACTIVE" },
       data: { status: "CONSUMED" },
     });
 
-    // 9. DECREMENT PHYSICAL STOCK
     for (const item of order.items) {
       await tx.productVariant.update({
         where: { id: item.variantId },
@@ -229,13 +220,11 @@ async function finalizeOrderTransaction({
       });
     }
 
-    // 10. CONFIRM ORDER
     const updatedOrder = await tx.order.update({
       where: { id: order.id },
       data: { status: "CONFIRMED" },
     });
 
-    // 11. MARK PAYMENT SUCCESS
     if (payment) {
       await tx.payment.update({
         where: { id: payment.id },
@@ -251,7 +240,6 @@ async function finalizeOrderTransaction({
       });
     }
 
-    // 12. AUDIT TRAIL
     await tx.orderStatusHistory.create({
       data: {
         orderId: order.id,
@@ -300,7 +288,6 @@ async function processPayHerePayment(payload) {
 // ==========================================
 async function handleLatePaymentFallback(orderId, payload) {
   return await prisma.$transaction(async (tx) => {
-    // 1. OPERATION-LEVEL SERIALIZATION (Lock the order to prevent concurrent fallbacks)
     await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
 
     const order = await tx.order.findUnique({
@@ -310,7 +297,6 @@ async function handleLatePaymentFallback(orderId, payload) {
 
     if (!order) return;
 
-    // 2. IDEMPOTENCY: Defensively check if this fallback already succeeded
     if (order.payments.length > 0 && order.payments[0].status === "SUCCESS") {
       console.log(
         `Fallback idempotency: Payment for order ${orderId} already marked SUCCESS.`,
@@ -318,7 +304,6 @@ async function handleLatePaymentFallback(orderId, payload) {
       return order;
     }
 
-    // 3. Mark the payment as SUCCESS (PayHere sent a cryptographically valid success notification)
     if (order.payments.length > 0) {
       await tx.payment.update({
         where: { id: order.payments[0].id },
@@ -330,13 +315,11 @@ async function handleLatePaymentFallback(orderId, payload) {
       });
     }
 
-    // 4. Mark the order as EXPIRED (since they lost their reservation/inventory)
     await tx.order.update({
       where: { id: orderId },
       data: { status: "EXPIRED" },
     });
 
-    // 5. Leave an urgent audit trail note for the Admin
     await tx.orderStatusHistory.create({
       data: {
         orderId: order.id,
@@ -351,9 +334,81 @@ async function handleLatePaymentFallback(orderId, payload) {
   });
 }
 
+// ==========================================
+// ADMIN DASHBOARD OPERATIONS
+// ==========================================
+
+async function getAllOrders() {
+  return await prisma.order.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      items: true,
+      payments: {
+        select: {
+          id: true,
+          paymentMethod: true,
+          transactionId: true,
+          amount: true,
+          currency: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+  });
+}
+
+async function cancelOrder(orderId, changedBy = "ADMIN: Manual Cancellation") {
+  return await prisma.$transaction(async (tx) => {
+    const lockedRows = await tx.$queryRaw`
+      SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE
+    `;
+
+    if (lockedRows.length === 0) {
+      throw new Error("Order not found");
+    }
+
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      include: { reservations: true },
+    });
+
+    if (
+      order.status !== "PENDING_APPROVAL" &&
+      order.status !== "PENDING_PAYMENT"
+    ) {
+      throw new Error(`Cannot cancel order in ${order.status} state`);
+    }
+
+    await tx.inventoryReservation.updateMany({
+      where: { orderId: order.id, status: "ACTIVE" },
+      data: { status: "RELEASED" },
+    });
+
+    const updatedOrder = await tx.order.update({
+      where: { id: order.id },
+      data: { status: "CANCELLED" },
+    });
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId: order.id,
+        fromStatus: order.status,
+        toStatus: "CANCELLED",
+        changedBy: changedBy,
+      },
+    });
+
+    return updatedOrder;
+  });
+}
+
 module.exports = {
   createOrder,
   confirmWhatsAppOrder,
   processPayHerePayment,
   handleLatePaymentFallback,
+  cancelOrder,
+  getAllOrders,
 };

@@ -1,5 +1,6 @@
 const orderService = require("../services/order.service");
 const crypto = require("crypto");
+const { Prisma } = require("@prisma/client");
 
 async function createOrder(req, res, next) {
   try {
@@ -7,29 +8,39 @@ async function createOrder(req, res, next) {
 
     let payhereConfig = null;
 
-    // Generate secure hash if PayHere is selected
     if (order.paymentMethod === "PAYHERE") {
       const merchantId = process.env.PAYHERE_MERCHANT_ID;
       const merchantSecret = process.env.PAYHERE_SECRET;
-      const amount = order.totalAmount.toString();
+
+      if (!merchantId || !merchantSecret) {
+        throw new Error("PayHere configuration is missing");
+      }
+
+      const amount = new Prisma.Decimal(order.totalAmount).toFixed(2);
       const currency = "LKR";
+
+      const cleanMerchantId = merchantId.trim();
+      const cleanSecret = merchantSecret.trim();
 
       const hashedSecret = crypto
         .createHash("md5")
-        .update(merchantSecret)
+        .update(cleanSecret)
         .digest("hex")
         .toUpperCase();
+      const rawString = `${cleanMerchantId}${order.orderNumber}${amount}${currency}${hashedSecret}`;
       const hash = crypto
         .createHash("md5")
-        .update(
-          `${merchantId}${order.orderNumber}${amount}${currency}${hashedSecret}`,
-        )
+        .update(rawString)
         .digest("hex")
         .toUpperCase();
 
+      const nameParts = order.customerName.trim().split(/\s+/);
+      const firstName = nameParts.shift() || "";
+      const lastName = nameParts.join(" ") || "";
+
       payhereConfig = {
         sandbox: true,
-        merchant_id: merchantId,
+        merchant_id: cleanMerchantId,
         return_url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/checkout/success`,
         cancel_url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/checkout/cancel`,
         notify_url: `${process.env.API_URL || "http://localhost:5001/api"}/orders/webhook/payhere`,
@@ -37,8 +48,8 @@ async function createOrder(req, res, next) {
         items: "Store Purchase",
         currency: currency,
         amount: amount,
-        first_name: order.customerName.split(" ")[0] || "",
-        last_name: order.customerName.split(" ")[1] || "",
+        first_name: firstName,
+        last_name: lastName,
         email: order.customerEmail,
         phone: order.customerPhone,
         address: order.address,
@@ -51,7 +62,7 @@ async function createOrder(req, res, next) {
     res.status(201).json({
       success: true,
       data: order,
-      payhereConfig, // Send the secure configuration back to React
+      payhereConfig,
       message: "Order created and inventory locked successfully",
     });
   } catch (error) {
@@ -122,7 +133,9 @@ async function handlePayHereWebhook(req, res) {
     }
 
     // 2. Merchant ID check
-    const expectedMerchantId = process.env.PAYHERE_MERCHANT_ID;
+    const expectedMerchantId = process.env.PAYHERE_MERCHANT_ID
+      ? process.env.PAYHERE_MERCHANT_ID.trim()
+      : null;
     if (merchantId !== expectedMerchantId) {
       console.error(
         `PayHere Webhook: Invalid merchant ID. Expected ${expectedMerchantId}, got ${merchantId}`,
@@ -130,7 +143,9 @@ async function handlePayHereWebhook(req, res) {
       return res.status(400).send("Invalid merchant");
     }
 
-    const merchantSecret = process.env.PAYHERE_SECRET;
+    const merchantSecret = process.env.PAYHERE_SECRET
+      ? process.env.PAYHERE_SECRET.trim()
+      : null;
     if (!merchantSecret) {
       console.error("CRITICAL: PAYHERE_SECRET is not defined in .env");
       return res.status(500).send("Server Error");
@@ -171,11 +186,10 @@ async function handlePayHereWebhook(req, res) {
         ) {
           console.log(`Executing late payment fallback for ${orderId}`);
           await orderService.handleLatePaymentFallback(orderId, payload);
-          // Return 200 OK so PayHere knows we recorded the money
           return res.status(200).send("OK - Late Payment Recorded");
         }
 
-        // --- STRICT BUSINESS LOGIC ERRORS ---
+        // --- BUSINESS LOGIC ERRORS ---
         if (err.code === "AMOUNT_MISMATCH" || err.code === "INVALID_STATE") {
           return res.status(400).send(err.message);
         }
@@ -191,9 +205,34 @@ async function handlePayHereWebhook(req, res) {
     res.status(500).send("Internal Server Error");
   }
 }
+async function cancelOrder(req, res, next) {
+  try {
+    const { orderId } = req.params;
+    const cancelledOrder = await orderService.cancelOrder(orderId);
+
+    res.status(200).json({
+      success: true,
+      data: cancelledOrder,
+      message: "Order cancelled and inventory released successfully",
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+async function getAllOrders(req, res, next) {
+  try {
+    const orders = await orderService.getAllOrders();
+    res.status(200).json({ success: true, data: orders });
+  } catch (error) {
+    next(error);
+  }
+}
 
 module.exports = {
   createOrder,
   approveOrder,
   handlePayHereWebhook,
+  cancelOrder,
+  getAllOrders,
 };
