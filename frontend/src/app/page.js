@@ -7,6 +7,7 @@ export default async function HomePage({ searchParams }) {
   // Extract search and category from the URL, defaulting to empty
   const currentCategory = searchParams?.category || "";
   const currentSearch = searchParams?.search || "";
+  const currentPage = parseInt(searchParams?.page || "1", 10);
 
   const { products } = await fetchProducts(searchParams);
   const categories = await fetchCategories();
@@ -78,6 +79,26 @@ export default async function HomePage({ searchParams }) {
           </p>
           <Link href="/" className="text-black font-bold hover:underline">
             Clear all filters
+          </Link>
+        </div>
+      )}
+      {/* Pagination Controls */}
+      {products.length > 0 && (
+        <div className="flex justify-center items-center gap-4 mt-12 border-t pt-8">
+          <Link
+            href={`/?page=${Math.max(1, currentPage - 1)}${currentCategory ? `&category=${currentCategory}` : ""}${currentSearch ? `&search=${currentSearch}` : ""}`}
+            className={`px-4 py-2 font-bold rounded-lg border ${currentPage === 1 ? "text-zinc-300 border-zinc-200 pointer-events-none" : "text-zinc-700 hover:bg-zinc-50"}`}
+          >
+            Previous
+          </Link>
+          <span className="text-sm font-bold text-zinc-500">
+            Page {currentPage}
+          </span>
+          <Link
+            href={`/?page=${currentPage + 1}${currentCategory ? `&category=${currentCategory}` : ""}${currentSearch ? `&search=${currentSearch}` : ""}`}
+            className={`px-4 py-2 font-bold rounded-lg border text-zinc-700 hover:bg-zinc-50 ${products.length < 12 ? "pointer-events-none opacity-50" : ""}`}
+          >
+            Next
           </Link>
         </div>
       )}

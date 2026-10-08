@@ -50,13 +50,17 @@ export default function CartDrawer() {
             cart.map((item) => (
               <div key={item.variant.id} className="flex gap-4">
                 <div className="w-20 h-24 bg-zinc-100 rounded-md overflow-hidden flex-shrink-0">
-                  {item.product.primaryImage && (
+                  <div className="w-20 h-24 bg-zinc-100 rounded-md overflow-hidden flex-shrink-0">
                     <img
-                      src={item.product.primaryImage.url}
+                      src={
+                        item.product.images?.[0]?.url ||
+                        item.product.primaryImage?.url ||
+                        "https://placehold.co/400x500/e4e4e7/a1a1aa?text=No+Image"
+                      }
                       alt={item.product.name}
                       className="w-full h-full object-cover"
                     />
-                  )}
+                  </div>
                 </div>
                 <div className="flex-1 flex flex-col">
                   <h3 className="text-sm font-semibold line-clamp-2">

@@ -180,7 +180,6 @@ async function getProductBySlugOrId(identifier) {
 
   const variantsWithStock = attachAvailableStock(product.variants);
 
-  // Calculate minPrice and maxPrice so it matches the list API
   const prices = variantsWithStock.map((v) => v.price);
   const minPrice = prices.length ? Math.min(...prices) : 0;
   const maxPrice = prices.length ? Math.max(...prices) : 0;
@@ -242,14 +241,31 @@ async function createProductWithVariants(data) {
 }
 
 async function updateProduct(id, data) {
-  return await prisma.product.update({
-    where: { id },
-    data: {
-      name: data.name,
-      description: data.description,
-      isActive: data.isActive,
-      categoryId: data.categoryId,
-    },
+  return await prisma.$transaction(async (tx) => {
+    const product = await tx.product.update({
+      where: { id },
+      data: {
+        name: data.name,
+        description: data.description,
+        isActive: data.isActive,
+        categoryId: data.categoryId,
+      },
+    });
+
+    // If a new array of images is provided, replace the old ones entirely
+    if (data.images && Array.isArray(data.images) && data.images.length > 0) {
+      await tx.productImage.deleteMany({ where: { productId: id } });
+
+      const imageRecords = data.images.map((img) => ({
+        productId: id,
+        url: img.url,
+        isPrimary: img.isPrimary,
+        displayOrder: img.displayOrder,
+      }));
+
+      await tx.productImage.createMany({ data: imageRecords });
+    }
+    return product;
   });
 }
 
@@ -264,10 +280,24 @@ async function updateVariant(id, data) {
   });
 }
 
+async function getAdminProduct(id) {
+  return await prisma.product.findUnique({
+    where: { id },
+    include: {
+      images: {
+        orderBy: [{ isPrimary: "desc" }, { displayOrder: "asc" }],
+      },
+      category: true,
+      variants: true,
+    },
+  });
+}
+
 module.exports = {
   listProducts,
   getProductBySlugOrId,
   createProductWithVariants,
   updateProduct,
   updateVariant,
+  getAdminProduct,
 };

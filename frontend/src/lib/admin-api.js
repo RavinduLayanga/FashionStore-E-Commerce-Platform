@@ -79,3 +79,11 @@ export async function updateVariantApi(variantId, data) {
   if (!res.ok) throw new Error(json.message || "Failed to update variant");
   return json.data;
 }
+export async function fetchAdminProductApi(id) {
+  const res = await fetch(`${API_URL}/products/admin/${id}`, {
+    headers: getAuthHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message);
+  return json.data;
+}

@@ -58,6 +58,16 @@ async function updateVariant(req, res, next) {
     next(error);
   }
 }
+async function getAdminProduct(req, res, next) {
+  try {
+    const product = await productService.getAdminProduct(req.params.id);
+    if (!product)
+      return res.status(404).json({ success: false, message: "Not found" });
+    res.status(200).json({ success: true, data: product });
+  } catch (error) {
+    next(error);
+  }
+}
 
 module.exports = {
   listProducts,
@@ -65,4 +75,5 @@ module.exports = {
   createProduct,
   updateProduct,
   updateVariant,
+  getAdminProduct,
 };

@@ -41,6 +41,13 @@ router.patch(
   validate({ body: updateVariantSchema }),
   productController.updateVariant,
 );
+// Admin route: Get full product including sold-out variants
+router.get(
+  "/admin/:id",
+  authenticate,
+  requireAdmin,
+  productController.getAdminProduct,
+);
 
 // Admin route: Update base product details/status
 router.patch(

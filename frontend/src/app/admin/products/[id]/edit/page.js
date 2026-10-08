@@ -1,12 +1,20 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { fetchProduct, fetchCategories } from "../../../../../lib/api";
+import { fetchCategories } from "../../../../../lib/api";
 import {
+  fetchAdminProductApi,
   updateProductApi,
   updateVariantApi,
 } from "../../../../../lib/admin-api";
-import { ArrowLeft, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  CheckCircle,
+  AlertCircle,
+  Image as ImageIcon,
+  Trash2,
+} from "lucide-react";
 
 export default function EditProductPage({ params }) {
   const router = useRouter();
@@ -17,6 +25,20 @@ export default function EditProductPage({ params }) {
   const [savingVariantId, setSavingVariantId] = useState(null);
   const [error, setError] = useState(null);
 
+  // Custom Toast Notification State
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: "", type: "success" });
+    }, 3000); // Auto-hide after 3 seconds
+  };
+
   // Form states
   const [baseDetails, setBaseDetails] = useState({
     name: "",
@@ -24,6 +46,9 @@ export default function EditProductPage({ params }) {
     categoryId: "",
     isActive: true,
   });
+
+  // New: Image and Variant States
+  const [images, setImages] = useState([""]);
   const [variants, setVariants] = useState([]);
 
   useEffect(() => {
@@ -31,7 +56,7 @@ export default function EditProductPage({ params }) {
       try {
         setLoading(true);
         const [prodData, catData] = await Promise.all([
-          fetchProduct(params.id),
+          fetchAdminProductApi(params.id),
           fetchCategories(),
         ]);
 
@@ -47,6 +72,11 @@ export default function EditProductPage({ params }) {
           isActive: prodData.isActive ?? true,
         });
 
+        // Load existing images, or give an empty box if none exist
+        if (prodData.images && prodData.images.length > 0) {
+          setImages(prodData.images.map((img) => img.url));
+        }
+
         setVariants(prodData.variants || []);
       } catch (err) {
         setError(err.message);
@@ -57,19 +87,43 @@ export default function EditProductPage({ params }) {
     loadData();
   }, [params.id]);
 
+  // Image Handlers
+  const updateImage = (index, url) => {
+    setImages((prev) => prev.map((img, i) => (i === index ? url : img)));
+  };
+
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSaveBase = async (e) => {
     e.preventDefault();
     try {
       setSavingBase(true);
-      await updateProductApi(product.id, baseDetails);
-      alert("Product details updated successfully!");
+
+      // Filter out empty URLs and format for backend
+      const validImages = images
+        .filter((url) => url.trim() !== "")
+        .map((url, index) => ({
+          url: url.trim(),
+          isPrimary: index === 0,
+          displayOrder: index + 1,
+        }));
+
+      await updateProductApi(product.id, {
+        ...baseDetails,
+        images: validImages,
+      });
+
+      showToast("Product details and images updated successfully!");
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       setSavingBase(false);
     }
   };
 
+  // Variant Handlers
   const handleUpdateVariant = (index, field, value) => {
     setVariants((prev) =>
       prev.map((v, i) => (i === index ? { ...v, [field]: value } : v)),
@@ -85,9 +139,9 @@ export default function EditProductPage({ params }) {
         price: variant.price,
         isActive: variant.isActive,
       });
-      alert(`Variant ${variant.sku} inventory updated!`);
+      showToast(`Variant ${variant.sku} inventory updated!`);
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       setSavingVariantId(null);
     }
@@ -97,7 +151,21 @@ export default function EditProductPage({ params }) {
   if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8 relative">
+      {/* Sleek Custom Toast Notification */}
+      {toast.show && (
+        <div
+          className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl z-50 flex items-center gap-3 transition-all duration-300 animate-in slide-in-from-bottom-5 ${toast.type === "success" ? "bg-black text-white" : "bg-red-600 text-white"}`}
+        >
+          {toast.type === "success" ? (
+            <CheckCircle className="w-5 h-5" />
+          ) : (
+            <AlertCircle className="w-5 h-5" />
+          )}
+          <span className="font-bold text-sm">{toast.message}</span>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => router.back()}
@@ -110,12 +178,12 @@ export default function EditProductPage({ params }) {
         </h1>
       </div>
 
-      {/* Top Section: Edit Base Details & Activate/Deactivate */}
+      {/* Top Section: Edit Base Details & Images */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200 mb-8">
         <h2 className="text-xl font-bold border-b pb-2 mb-4">
           Product Details
         </h2>
-        <form onSubmit={handleSaveBase} className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSaveBase} className="grid grid-cols-2 gap-6">
           <div className="col-span-2 sm:col-span-1">
             <label className="block text-sm font-bold mb-2">Product Name</label>
             <input
@@ -127,6 +195,7 @@ export default function EditProductPage({ params }) {
               }
             />
           </div>
+
           <div className="col-span-2 sm:col-span-1">
             <label className="block text-sm font-bold mb-2">Category</label>
             <select
@@ -144,6 +213,7 @@ export default function EditProductPage({ params }) {
               ))}
             </select>
           </div>
+
           <div className="col-span-2">
             <label className="block text-sm font-bold mb-2">Description</label>
             <textarea
@@ -156,7 +226,65 @@ export default function EditProductPage({ params }) {
             />
           </div>
 
-          <div className="col-span-2 flex items-center justify-between mt-4">
+          {/* New Image Updating Section */}
+          <div className="col-span-2 mt-4">
+            <div className="flex justify-between items-center border-b pb-2 mb-4">
+              <label className="block text-sm font-bold text-zinc-900">
+                Product Images
+              </label>
+              <button
+                type="button"
+                onClick={() => setImages([...images, ""])}
+                className="text-xs font-bold bg-zinc-100 px-3 py-1.5 rounded-lg hover:bg-zinc-200 flex items-center gap-1 transition"
+              >
+                <ImageIcon className="w-3 h-3" /> Add Image
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {images.map((url, i) => (
+                <div key={i} className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-zinc-500 mb-1">
+                      {i === 0
+                        ? "Primary Image URL"
+                        : `Additional Image URL ${i + 1}`}
+                    </label>
+                    <input
+                      required={i === 0}
+                      type="url"
+                      placeholder="https://images.unsplash.com/..."
+                      className="w-full border p-3 rounded-lg outline-none focus:ring-2 focus:ring-black"
+                      value={url}
+                      onChange={(e) => updateImage(i, e.target.value)}
+                    />
+                  </div>
+                  {url && (
+                    <div className="w-16 h-16 bg-zinc-100 rounded-lg border overflow-hidden mt-5 flex-shrink-0">
+                      <img
+                        src={url}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => (e.target.style.display = "none")}
+                      />
+                    </div>
+                  )}
+                  {images.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="mt-5 p-3 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Submit Details & Status */}
+          <div className="col-span-2 flex items-center justify-between mt-4 pt-4 border-t border-zinc-100">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -175,7 +303,7 @@ export default function EditProductPage({ params }) {
               disabled={savingBase}
               className="bg-black text-white px-6 py-2.5 rounded-lg font-bold hover:bg-zinc-800 transition disabled:opacity-50"
             >
-              {savingBase ? "Saving..." : "Save Details"}
+              {savingBase ? "Saving..." : "Save Details & Images"}
             </button>
           </div>
         </form>

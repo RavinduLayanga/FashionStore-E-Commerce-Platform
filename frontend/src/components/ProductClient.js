@@ -89,7 +89,7 @@ export default function ProductClient({ product }) {
           <h1 className="text-3xl font-extrabold text-zinc-900 mb-2">
             {product.name}
           </h1>
-          <p className="text-xl font-medium text-zinc-700 mb-6">
+          <p className="text-2xl font-bold text-zinc-900 mb-6">
             LKR{" "}
             {selectedVariant
               ? selectedVariant.price.toLocaleString()
@@ -108,7 +108,7 @@ export default function ProductClient({ product }) {
                   key={color}
                   onClick={() => {
                     setSelectedColor(color);
-                    setSelectedSize(""); // Reset size when color changes
+                    setSelectedSize("");
                   }}
                   className={`px-4 py-2 border rounded-full text-sm font-medium transition ${
                     selectedColor === color

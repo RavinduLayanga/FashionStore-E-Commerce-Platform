@@ -70,6 +70,15 @@ const updateProductSchema = z.object({
   description: z.string().trim().optional(),
   categoryId: z.string().uuid().optional(),
   isActive: z.boolean().optional(),
+  images: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        isPrimary: z.boolean().optional(),
+        displayOrder: z.number().int().optional(),
+      }),
+    )
+    .optional(),
 });
 
 const updateVariantSchema = z.object({

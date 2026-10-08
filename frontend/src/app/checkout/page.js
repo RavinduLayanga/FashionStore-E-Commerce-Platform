@@ -347,13 +347,17 @@ export default function CheckoutPage() {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-20 bg-white rounded overflow-hidden border">
-                    {item.product.primaryImage && (
+                    <div className="w-16 h-20 bg-white rounded overflow-hidden border">
                       <img
-                        src={item.product.primaryImage.url}
+                        src={
+                          item.product.images?.[0]?.url ||
+                          item.product.primaryImage?.url ||
+                          "https://placehold.co/400x500/e4e4e7/a1a1aa?text=No+Image"
+                        }
                         alt={item.product.name}
                         className="w-full h-full object-cover"
                       />
-                    )}
+                    </div>
                   </div>
                   <div>
                     <p className="font-semibold text-sm">{item.product.name}</p>
