@@ -1,39 +1,64 @@
 import { fetchProducts, fetchCategories } from "../lib/api";
 import ProductCard from "../components/ProductCard";
+import Link from "next/link";
+import { Search } from "lucide-react";
 
-export default async function HomePage() {
-  const { products } = await fetchProducts({ limit: 12 });
+export default async function HomePage({ searchParams }) {
+  // Extract search and category from the URL, defaulting to empty
+  const currentCategory = searchParams?.category || "";
+  const currentSearch = searchParams?.search || "";
+
+  const { products } = await fetchProducts(searchParams);
   const categories = await fetchCategories();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Hero Section */}
-      <div className="bg-zinc-900 text-white rounded-3xl p-8 sm:p-16 mb-12 text-center">
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">
+      <div className="bg-zinc-900 text-white rounded-3xl p-8 sm:p-16 mb-12 text-center relative overflow-hidden">
+        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 relative z-10">
           The New Standard
         </h1>
-        <p className="text-zinc-400 max-w-2xl mx-auto mb-8 text-lg">
+        <p className="text-zinc-400 max-w-2xl mx-auto mb-8 text-lg relative z-10">
           Discover our latest collection of premium quality essentials, designed
           for everyday comfort and modern style.
         </p>
-        <button className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-zinc-200 transition">
-          Shop Collection
-        </button>
       </div>
 
-      {/* Category Pills */}
-      <div className="mb-8 flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
-        <div className="px-5 py-2 bg-black text-white rounded-full text-sm font-medium whitespace-nowrap cursor-pointer">
-          All Products
-        </div>
-        {categories.map((cat) => (
-          <div
-            key={cat.id}
-            className="px-5 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer transition"
+      {/* Search and Filter Controls */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        {/* Category Pills */}
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide w-full md:w-auto">
+          <Link
+            href="/"
+            className={`px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${!currentCategory ? "bg-black text-white" : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900"}`}
           >
-            {cat.name}
-          </div>
-        ))}
+            All Products
+          </Link>
+          {categories.map((cat) => (
+            <Link
+              key={cat.id}
+              href={`/?category=${cat.slug}`}
+              className={`px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${currentCategory === cat.slug ? "bg-black text-white" : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900"}`}
+            >
+              {cat.name}
+            </Link>
+          ))}
+        </div>
+
+        {/* Search Bar */}
+        <form action="/" method="GET" className="relative w-full md:w-72">
+          {currentCategory && (
+            <input type="hidden" name="category" value={currentCategory} />
+          )}
+          <input
+            type="text"
+            name="search"
+            defaultValue={currentSearch}
+            placeholder="Search products..."
+            className="w-full border border-zinc-200 bg-zinc-50 pl-10 pr-4 py-2.5 rounded-full text-sm outline-none focus:ring-2 focus:ring-black transition"
+          />
+          <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
+        </form>
       </div>
 
       {/* Product Grid */}
@@ -44,8 +69,16 @@ export default async function HomePage() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-20 text-zinc-500">
-          No products found.
+        <div className="text-center py-24 bg-zinc-50 rounded-2xl border border-zinc-100">
+          <h3 className="text-lg font-bold text-zinc-900 mb-2">
+            No products found
+          </h3>
+          <p className="text-zinc-500 mb-4">
+            Try adjusting your search or category filter.
+          </p>
+          <Link href="/" className="text-black font-bold hover:underline">
+            Clear all filters
+          </Link>
         </div>
       )}
     </div>

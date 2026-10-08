@@ -65,8 +65,23 @@ const createProductSchema = z
     { message: "Variant SKUs must be unique", path: ["variants"] },
   );
 
+const updateProductSchema = z.object({
+  name: z.string().trim().min(2).optional(),
+  description: z.string().trim().optional(),
+  categoryId: z.string().uuid().optional(),
+  isActive: z.boolean().optional(),
+});
+
+const updateVariantSchema = z.object({
+  stock: z.coerce.number().int().min(0).optional(),
+  price: z.coerce.number().positive().optional(),
+  isActive: z.boolean().optional(),
+});
+
 module.exports = {
   listProductsQuerySchema,
   createProductSchema,
   productIdentifierSchema,
+  updateProductSchema,
+  updateVariantSchema,
 };

@@ -18,13 +18,11 @@ async function getProduct(req, res, next) {
     const { identifier } = req.validatedParams;
     const product = await productService.getProductBySlugOrId(identifier);
     if (!product) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Product not found",
-          code: "NOT_FOUND",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+        code: "NOT_FOUND",
+      });
     }
     res.status(200).json({ success: true, data: product });
   } catch (error) {
@@ -40,9 +38,31 @@ async function createProduct(req, res, next) {
     next(error);
   }
 }
+async function updateProduct(req, res, next) {
+  try {
+    const product = await productService.updateProduct(req.params.id, req.body);
+    res.status(200).json({ success: true, data: product });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateVariant(req, res, next) {
+  try {
+    const variant = await productService.updateVariant(
+      req.params.variantId,
+      req.body,
+    );
+    res.status(200).json({ success: true, data: variant });
+  } catch (error) {
+    next(error);
+  }
+}
 
 module.exports = {
   listProducts,
   getProduct,
   createProduct,
+  updateProduct,
+  updateVariant,
 };

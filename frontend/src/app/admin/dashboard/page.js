@@ -1,20 +1,27 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+
 import {
   fetchAdminOrders,
   approveOrderApi,
   cancelOrderApi,
 } from "../../../lib/admin-api";
-import { LogOut, CheckCircle, XCircle, Eye, X } from "lucide-react";
+import { LogOut, CheckCircle, XCircle, Eye, X, Search } from "lucide-react";
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
   const [processingId, setProcessingId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  // Custom Confirmation Dialog State
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   useEffect(() => {
     loadOrders();
@@ -41,9 +48,8 @@ export default function AdminDashboardPage() {
     router.push("/admin/login");
   };
 
-  const handleApprove = async (orderId) => {
-    if (!confirm("Are you sure you want to manually confirm this order?"))
-      return;
+  const executeApprove = async (orderId) => {
+    setConfirmDialog(null);
     try {
       setProcessingId(orderId);
       await approveOrderApi(orderId);
@@ -56,13 +62,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleCancel = async (orderId) => {
-    if (
-      !confirm(
-        "Cancel this order and release inventory? This cannot be undone.",
-      )
-    )
-      return;
+  const executeCancel = async (orderId) => {
+    setConfirmDialog(null);
     try {
       setProcessingId(orderId);
       await cancelOrderApi(orderId);
@@ -73,6 +74,26 @@ export default function AdminDashboardPage() {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const promptApprove = (orderId) => {
+    setConfirmDialog({
+      title: "Confirm Order",
+      message:
+        "Are you sure you want to manually confirm this order? This will finalize the inventory.",
+      isDestructive: false,
+      onConfirm: () => executeApprove(orderId),
+    });
+  };
+
+  const promptCancel = (orderId) => {
+    setConfirmDialog({
+      title: "Cancel Order",
+      message:
+        "Are you sure you want to cancel this order? This will release the reserved inventory back to the storefront. This action cannot be undone.",
+      isDestructive: true,
+      onConfirm: () => executeCancel(orderId),
+    });
   };
 
   const stats = useMemo(() => {
@@ -87,17 +108,52 @@ export default function AdminDashboardPage() {
     return { totalSales, pendingCount, totalOrders: orders.length };
   }, [orders]);
 
-  if (loading) {
+  const filteredOrders = useMemo(() => {
+    return orders.filter(
+      (o) =>
+        o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.customerName.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [orders, searchTerm]);
+
+  if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
         Loading dashboard...
       </div>
     );
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
-      {/* Order Details Modal */}
+      {/* Custom Confirmation Modal */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-zinc-900 mb-2">
+              {confirmDialog.title}
+            </h3>
+            <p className="text-sm text-zinc-600 mb-6 leading-relaxed">
+              {confirmDialog.message}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2 font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={confirmDialog.onConfirm}
+                className={`px-4 py-2 font-bold text-white rounded-lg transition ${confirmDialog.isDestructive ? "bg-red-600 hover:bg-red-700" : "bg-black hover:bg-zinc-800"}`}
+              >
+                Yes, Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Details Modal (Same as before) */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative shadow-2xl">
@@ -122,16 +178,12 @@ export default function AdminDashboardPage() {
                   {selectedOrder.customerName}
                 </p>
                 <p className="text-sm text-zinc-600">
-                  <span className="font-semibold text-zinc-900">Email:</span>{" "}
-                  {selectedOrder.customerEmail}
-                </p>
-                <p className="text-sm text-zinc-600">
                   <span className="font-semibold text-zinc-900">Phone:</span>{" "}
                   {selectedOrder.customerPhone}
                 </p>
                 <p className="text-sm text-zinc-600">
-                  <span className="font-semibold text-zinc-900">Address:</span>{" "}
-                  {selectedOrder.address}, {selectedOrder.city}
+                  <span className="font-semibold text-zinc-900">City:</span>{" "}
+                  {selectedOrder.city}
                 </p>
               </div>
               <div>
@@ -141,10 +193,6 @@ export default function AdminDashboardPage() {
                 <p className="text-sm text-zinc-600">
                   <span className="font-semibold text-zinc-900">Date:</span>{" "}
                   {new Date(selectedOrder.createdAt).toLocaleDateString()}
-                </p>
-                <p className="text-sm text-zinc-600">
-                  <span className="font-semibold text-zinc-900">Method:</span>{" "}
-                  {selectedOrder.paymentMethod}
                 </p>
                 <p className="text-sm text-zinc-600">
                   <span className="font-semibold text-zinc-900">Status:</span>{" "}
@@ -185,9 +233,8 @@ export default function AdminDashboardPage() {
             <div className="flex gap-3 justify-end border-t pt-4">
               {selectedOrder.status === "PENDING_APPROVAL" && (
                 <button
-                  onClick={() => handleApprove(selectedOrder.id)}
-                  disabled={processingId === selectedOrder.id}
-                  className="bg-black text-white px-5 py-2 rounded-lg font-bold hover:bg-zinc-800 transition disabled:opacity-50"
+                  onClick={() => promptApprove(selectedOrder.id)}
+                  className="bg-black text-white px-5 py-2 rounded-lg font-bold hover:bg-zinc-800 transition"
                 >
                   Confirm Order
                 </button>
@@ -195,9 +242,8 @@ export default function AdminDashboardPage() {
               {(selectedOrder.status === "PENDING_APPROVAL" ||
                 selectedOrder.status === "PENDING_PAYMENT") && (
                 <button
-                  onClick={() => handleCancel(selectedOrder.id)}
-                  disabled={processingId === selectedOrder.id}
-                  className="bg-red-50 text-red-600 border border-red-200 px-5 py-2 rounded-lg font-bold hover:bg-red-100 transition disabled:opacity-50"
+                  onClick={() => promptCancel(selectedOrder.id)}
+                  className="bg-red-50 text-red-600 border border-red-200 px-5 py-2 rounded-lg font-bold hover:bg-red-100 transition"
                 >
                   Cancel Order
                 </button>
@@ -212,12 +258,20 @@ export default function AdminDashboardPage() {
         <h1 className="text-3xl font-extrabold text-zinc-900">
           Store Dashboard
         </h1>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 text-zinc-600 hover:text-black font-medium transition"
-        >
-          <LogOut className="w-5 h-5" /> Logout
-        </button>
+        <div className="flex gap-6 items-center">
+          <Link
+            href="/admin/products"
+            className="text-sm font-bold text-zinc-600 hover:text-black"
+          >
+            Manage Products
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-zinc-600 hover:text-black font-medium transition"
+          >
+            <LogOut className="w-5 h-5" /> Logout
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -242,7 +296,7 @@ export default function AdminDashboardPage() {
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
           <p className="text-sm font-bold text-zinc-500 mb-1">
-            Action Required (Pending)
+            Action Required
           </p>
           <p className="text-3xl font-extrabold text-blue-600">
             {stats.pendingCount}
@@ -252,13 +306,24 @@ export default function AdminDashboardPage() {
 
       {/* Orders Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden">
-        <div className="p-6 border-b border-zinc-200 bg-zinc-50">
+        <div className="p-6 border-b border-zinc-200 bg-zinc-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-xl font-bold text-zinc-900">Recent Orders</h2>
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search ID or Name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full border border-zinc-300 pl-10 pr-4 py-2 rounded-lg text-sm outline-none focus:border-black transition"
+            />
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          </div>
         </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-zinc-200 text-sm text-zinc-500">
+              <tr className="border-b border-zinc-200 text-sm text-zinc-500 bg-white">
                 <th className="p-4 font-semibold">Order ID</th>
                 <th className="p-4 font-semibold">Customer</th>
                 <th className="p-4 font-semibold">Method</th>
@@ -268,14 +333,14 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {orders.length === 0 ? (
+              {filteredOrders.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="p-8 text-center text-zinc-500">
-                    No orders found.
+                    No orders match your search.
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
+                filteredOrders.map((order) => (
                   <tr
                     key={order.id}
                     className="border-b border-zinc-100 hover:bg-zinc-50 transition"
@@ -290,7 +355,7 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="p-4 text-sm font-medium">
                       <span
-                        className={`px-2 py-1 rounded-md ${order.paymentMethod === "PAYHERE" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`}
+                        className={`px-2 py-1 rounded-md ${order.paymentMethod === "PAYHERE" ? "bg-purple-100 text-purple-700" : "bg-emerald-100 text-emerald-700"}`}
                       >
                         {order.paymentMethod}
                       </span>
@@ -322,7 +387,7 @@ export default function AdminDashboardPage() {
 
                       {order.status === "PENDING_APPROVAL" && (
                         <button
-                          onClick={() => handleApprove(order.id)}
+                          onClick={() => promptApprove(order.id)}
                           disabled={processingId === order.id}
                           className="inline-flex items-center gap-1 bg-black text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-zinc-800 transition disabled:opacity-50"
                         >
@@ -333,7 +398,7 @@ export default function AdminDashboardPage() {
                       {(order.status === "PENDING_APPROVAL" ||
                         order.status === "PENDING_PAYMENT") && (
                         <button
-                          onClick={() => handleCancel(order.id)}
+                          onClick={() => promptCancel(order.id)}
                           disabled={processingId === order.id}
                           className="inline-flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 transition disabled:opacity-50"
                         >

@@ -28,7 +28,6 @@ function attachAvailableStock(variants) {
 }
 
 async function listProducts(query) {
-  // Force strict integer casting to prevent Prisma string errors
   const pageNum = parseInt(query.page, 10) || 1;
   const limitNum = parseInt(query.limit, 10) || 12;
   const skip = (pageNum - 1) * limitNum;
@@ -242,8 +241,33 @@ async function createProductWithVariants(data) {
   });
 }
 
+async function updateProduct(id, data) {
+  return await prisma.product.update({
+    where: { id },
+    data: {
+      name: data.name,
+      description: data.description,
+      isActive: data.isActive,
+      categoryId: data.categoryId,
+    },
+  });
+}
+
+async function updateVariant(id, data) {
+  return await prisma.productVariant.update({
+    where: { id },
+    data: {
+      stock: data.stock,
+      price: data.price,
+      isActive: data.isActive,
+    },
+  });
+}
+
 module.exports = {
   listProducts,
   getProductBySlugOrId,
   createProductWithVariants,
+  updateProduct,
+  updateVariant,
 };

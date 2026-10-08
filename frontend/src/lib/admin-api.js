@@ -47,3 +47,35 @@ export async function cancelOrderApi(orderId) {
   if (!res.ok) throw new Error(json.message || "Failed to cancel order");
   return json.data;
 }
+export async function createProductApi(productData) {
+  const res = await fetch(`${API_URL}/products`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(productData),
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Failed to create product");
+  return json.data;
+}
+export async function updateProductApi(id, data) {
+  const res = await fetch(`${API_URL}/products/${id}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Failed to update product");
+  return json.data;
+}
+
+export async function updateVariantApi(variantId, data) {
+  const res = await fetch(`${API_URL}/products/variants/${variantId}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Failed to update variant");
+  return json.data;
+}
