@@ -138,9 +138,6 @@ async function finalizeOrderTransaction({
     const payment = order.payments[0];
 
     if (expectedStatus === "PENDING_PAYMENT" && payment?.status === "SUCCESS") {
-      console.log(
-        `Payment for order ${orderId} already processed. Ignoring duplicate webhook.`,
-      );
       return order;
     }
 

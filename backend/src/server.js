@@ -45,22 +45,18 @@ app.use((err, req, res, next) => {
 
   // Prisma Error Mapping
   if (err.code === "P2002") {
-    return res
-      .status(409)
-      .json({
-        success: false,
-        message: "Unique constraint failed",
-        code: "CONFLICT",
-      });
+    return res.status(409).json({
+      success: false,
+      message: "Unique constraint failed",
+      code: "CONFLICT",
+    });
   }
   if (err.code === "P2003") {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Foreign key constraint failed",
-        code: "BAD_REQUEST",
-      });
+    return res.status(400).json({
+      success: false,
+      message: "Foreign key constraint failed",
+      code: "BAD_REQUEST",
+    });
   }
   if (err.code === "P2025") {
     return res

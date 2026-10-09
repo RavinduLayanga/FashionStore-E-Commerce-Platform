@@ -173,9 +173,6 @@ async function handlePayHereWebhook(req, res) {
     if (statusCode === "2") {
       try {
         await orderService.processPayHerePayment(payload);
-        console.log(
-          `Successfully processed PayHere payment for Order: ${orderId}`,
-        );
       } catch (err) {
         console.error(`PayHere DB Processing Error [${orderId}]:`, err.message);
 
@@ -184,7 +181,6 @@ async function handlePayHereWebhook(req, res) {
           err.code === "EXPIRED_RESERVATION" ||
           err.code === "INVENTORY_ERROR"
         ) {
-          console.log(`Executing late payment fallback for ${orderId}`);
           await orderService.handleLatePaymentFallback(orderId, payload);
           return res.status(200).send("OK - Late Payment Recorded");
         }
@@ -201,7 +197,7 @@ async function handlePayHereWebhook(req, res) {
 
     res.status(200).send("OK");
   } catch (error) {
-    console.error("PayHere Webhook Critical Error:", error.message);
+    // console.error("PayHere Webhook Critical Error:", error.message);
     res.status(500).send("Internal Server Error");
   }
 }
