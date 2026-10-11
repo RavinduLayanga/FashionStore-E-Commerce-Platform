@@ -122,10 +122,18 @@ async function finalizeOrderTransaction({
   amountCheck = null,
 }) {
   return await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
+    // Lock row using either primary key id or orderNumber
+    await tx.$queryRaw`
+      SELECT id FROM "Order" 
+      WHERE CAST(id AS TEXT) = ${orderId} OR "orderNumber" = ${orderId} 
+      FOR UPDATE
+    `;
 
-    const order = await tx.order.findUnique({
-      where: { id: orderId },
+    // Query order by id or orderNumber
+    const order = await tx.order.findFirst({
+      where: {
+        OR: [{ id: orderId }, { orderNumber: orderId }],
+      },
       include: {
         items: true,
         payments: true,
@@ -285,10 +293,16 @@ async function processPayHerePayment(payload) {
 // ==========================================
 async function handleLatePaymentFallback(orderId, payload) {
   return await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
+    await tx.$queryRaw`
+      SELECT id FROM "Order" 
+      WHERE CAST(id AS TEXT) = ${orderId} OR "orderNumber" = ${orderId} 
+      FOR UPDATE
+    `;
 
-    const order = await tx.order.findUnique({
-      where: { id: orderId },
+    const order = await tx.order.findFirst({
+      where: {
+        OR: [{ id: orderId }, { orderNumber: orderId }],
+      },
       include: { payments: true },
     });
 
