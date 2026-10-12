@@ -7,7 +7,7 @@ export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [isMounted, setIsMounted] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  // Load cart from LocalStorage on mount to survive page refreshes
+  // 1. Load cart from LocalStorage on mount
   useEffect(() => {
     setIsMounted(true);
     try {
@@ -23,6 +23,23 @@ export function CartProvider({ children }) {
       localStorage.removeItem("fashion_cart");
     }
   }, []);
+
+  // 2. Save slim cart to LocalStorage whenever it changes
+  useEffect(() => {
+    if (isMounted) {
+      const slimCart = cart.map((item) => ({
+        variant: item.variant,
+        quantity: item.quantity,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          slug: item.product.slug,
+          primaryImage: item.product.primaryImage || item.product.images?.[0],
+        },
+      }));
+      localStorage.setItem("fashion_cart", JSON.stringify(slimCart));
+    }
+  }, [cart, isMounted]);
 
   const addToCart = (product, variant, quantity = 1) => {
     setCart((prev) => {

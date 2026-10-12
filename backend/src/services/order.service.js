@@ -327,7 +327,7 @@ async function handleLatePaymentFallback(orderId, payload) {
     }
 
     await tx.order.update({
-      where: { id: orderId },
+      where: { id: order.id },
       data: { status: "EXPIRED" },
     });
 

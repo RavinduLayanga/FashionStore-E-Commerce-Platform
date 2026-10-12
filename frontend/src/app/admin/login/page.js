@@ -34,9 +34,6 @@ export default function AdminLoginPage() {
         throw new Error(data.message || "Invalid credentials");
       }
 
-      // 2. Store the JWT for authenticated admin API requests
-      localStorage.setItem("adminToken", data.data.token);
-
       // Redirect to the protected dashboard
       router.push("/admin/dashboard");
       router.refresh();

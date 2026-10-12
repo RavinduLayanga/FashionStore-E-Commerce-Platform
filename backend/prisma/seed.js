@@ -5,6 +5,15 @@ require("dotenv").config();
 const prisma = new PrismaClient();
 
 async function main() {
+  if (
+    process.env.NODE_ENV === "production" &&
+    !process.argv.includes("--force")
+  ) {
+    console.error(
+      "Refusing to drop production data. Run with --force to override.",
+    );
+    process.exit(1);
+  }
   console.log("Clearing existing records...");
   await prisma.payment.deleteMany();
   await prisma.inventoryReservation.deleteMany();
