@@ -7,6 +7,7 @@ import {
   fetchAdminOrders,
   approveOrderApi,
   cancelOrderApi,
+  logoutApi,
 } from "../../../lib/admin-api";
 import { LogOut, CheckCircle, XCircle, Eye, X, Search } from "lucide-react";
 
@@ -43,9 +44,15 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    router.push("/admin/login");
+  const handleLogout = async () => {
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      // Always redirect to login, even if the server request fails
+      router.push("/admin/login");
+    }
   };
 
   const executeApprove = async (orderId) => {

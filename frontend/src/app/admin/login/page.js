@@ -24,6 +24,7 @@ export default function AdminLoginPage() {
       // 1. Point to your existing Phase 2 auth route
       const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });

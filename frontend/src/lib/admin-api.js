@@ -86,3 +86,15 @@ export async function fetchAdminProductApi(id) {
   if (!res.ok) throw new Error(json.message);
   return json.data;
 }
+
+export async function logoutApi() {
+  const res = await fetch(`${API_URL}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+    headers: defaultHeaders,
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Failed to logout");
+  return json;
+}

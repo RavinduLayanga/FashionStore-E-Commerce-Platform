@@ -29,4 +29,19 @@ async function getMe(req, res, next) {
   }
 }
 
-module.exports = { login, getMe };
+// ... existing login and getMe functions ...
+
+async function logout(req, res, next) {
+  try {
+    res.clearCookie("adminToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    res.status(200).json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { login, getMe, logout };
