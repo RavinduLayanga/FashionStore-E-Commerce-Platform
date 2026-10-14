@@ -83,8 +83,7 @@ export default function CheckoutPage() {
         text += `*Total:* LKR ${cartTotal.toLocaleString()}\n\n`;
         text += `Please confirm this order.`;
 
-        const shopWhatsAppNumber =
-          process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "94770000000";
+        const shopWhatsAppNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
         const whatsappUrl = `https://wa.me/${shopWhatsAppNumber}?text=${encodeURIComponent(text)}`;
         window.open(whatsappUrl, "_blank");
       } else if (formData.paymentMethod === "PAYHERE") {
