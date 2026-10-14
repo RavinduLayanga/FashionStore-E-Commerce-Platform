@@ -4,8 +4,14 @@ const authController = require("../controllers/auth.controller");
 const validate = require("../middleware/validate");
 const { loginSchema } = require("../validators/auth.validator");
 const { authenticate } = require("../middleware/auth");
+const { loginLimiter } = require("../middleware/rateLimiters");
 
-router.post("/login", validate({ body: loginSchema }), authController.login);
+router.post(
+  "/login",
+  loginLimiter,
+  validate({ body: loginSchema }),
+  authController.login,
+);
 router.get("/me", authenticate, authController.getMe);
 router.post("/logout", authController.logout);
 

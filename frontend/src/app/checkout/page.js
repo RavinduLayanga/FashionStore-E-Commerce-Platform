@@ -63,7 +63,6 @@ export default function CheckoutPage() {
         );
       }
 
-      clearCart();
       setSuccess(true);
 
       if (formData.paymentMethod === "WHATSAPP") {

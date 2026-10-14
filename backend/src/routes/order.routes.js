@@ -4,6 +4,7 @@ const orderController = require("../controllers/order.controller");
 const validate = require("../middleware/validate");
 const { createOrderSchema } = require("../validators/order.validator");
 const { authenticate, requireAdmin } = require("../middleware/auth");
+const { orderLimiter } = require("../middleware/rateLimiters");
 
 // PayHere Webhook
 router.post(
@@ -15,6 +16,7 @@ router.post(
 // Public route: Customers create orders
 router.post(
   "/",
+  orderLimiter,
   validate({ body: createOrderSchema }),
   orderController.createOrder,
 );

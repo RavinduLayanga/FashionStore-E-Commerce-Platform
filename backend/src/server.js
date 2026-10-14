@@ -2,12 +2,16 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
 require("dotenv").config();
 
 const apiRouter = require("./routes");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+app.disable("x-powered-by");
+app.use(helmet());
 
 app.use(
   cors({
