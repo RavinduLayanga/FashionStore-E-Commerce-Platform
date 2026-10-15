@@ -66,6 +66,7 @@ export default function CheckoutPage() {
       setSuccess(true);
 
       if (formData.paymentMethod === "WHATSAPP") {
+        clearCart();
         const orderNumber = data.data.orderNumber;
 
         let text = `*NEW ORDER* - ${orderNumber}\n\n`;
