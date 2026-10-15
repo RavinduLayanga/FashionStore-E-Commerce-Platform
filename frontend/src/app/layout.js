@@ -1,6 +1,7 @@
 import "./globals.css";
 import Navbar from "../components/Navbar";
 import Providers from "../components/Providers";
+import Footer from "../components/Footer";
 
 export const metadata = {
   title: "Fashion Store | Modern Apparel",
@@ -14,6 +15,7 @@ export default function RootLayout({ children }) {
         <Providers>
           <Navbar />
           <main className="flex-1">{children}</main>
+          <Footer />
         </Providers>
       </body>
     </html>

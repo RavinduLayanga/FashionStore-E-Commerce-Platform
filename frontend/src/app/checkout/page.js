@@ -227,6 +227,17 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl mb-8 text-sm">
+        <strong className="block mb-1 text-base">⚠️ Demo Environment</strong>
+        This is a technical showcase. No real transactions will be processed,
+        and no items will be shipped.
+        <b>
+          {" "}
+          Please do not enter real credit card numbers or personal data.
+        </b>{" "}
+        Use the PayHere test credentials if testing the gateway.
+      </div>
+
       <h1 className="text-3xl font-extrabold text-zinc-900 mb-8">Checkout</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
