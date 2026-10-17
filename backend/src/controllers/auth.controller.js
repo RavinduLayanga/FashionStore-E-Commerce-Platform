@@ -1,44 +1,57 @@
 const authService = require("../services/auth.service");
 
+const isProd = process.env.NODE_ENV === "production";
+
+const adminCookieOptions = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  path: "/",
+};
+
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
-    // 1. Actually log the user in using the service
+
     const { token, user } = await authService.loginUser(email, password);
 
-    // 2. Set the HTTP-Only cookie
+    if (user.role !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+        code: "FORBIDDEN",
+      });
+    }
+
     res.cookie("adminToken", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      ...adminCookieOptions,
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
-    // 3. Return success without exposing the token in the JSON body
-    res.status(200).json({ success: true, data: { user } });
+    return res.status(200).json({
+      success: true,
+      data: { user },
+    });
   } catch (error) {
     next(error);
   }
 }
 
-async function getMe(req, res, next) {
-  try {
-    res.status(200).json({ success: true, data: req.user });
-  } catch (error) {
-    next(error);
-  }
+function getMe(req, res) {
+  return res.status(200).json({
+    success: true,
+    data: req.user,
+  });
 }
 
-// ... existing login and getMe functions ...
-
-async function logout(req, res, next) {
+function logout(req, res, next) {
   try {
-    res.clearCookie("adminToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+    res.clearCookie("adminToken", adminCookieOptions);
+
+    return res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
     });
-    res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {
     next(error);
   }

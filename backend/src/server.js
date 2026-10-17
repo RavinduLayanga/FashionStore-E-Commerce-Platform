@@ -10,6 +10,7 @@ const apiRouter = require("./routes");
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+app.set("trust proxy", 1);
 app.disable("x-powered-by");
 app.use(helmet());
 
@@ -47,35 +48,52 @@ app.use((req, res) => {
 });
 
 // Centralized Error Handling Middleware
+
 app.use((err, req, res, next) => {
   console.error("Unhandled Application Error:", err);
 
-  // Prisma Error Mapping
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  // Prisma errors
   if (err.code === "P2002") {
     return res.status(409).json({
       success: false,
-      message: "Unique constraint failed",
+      message: "A record with these details already exists",
       code: "CONFLICT",
     });
   }
+
   if (err.code === "P2003") {
     return res.status(400).json({
       success: false,
-      message: "Foreign key constraint failed",
+      message: "Invalid related record",
       code: "BAD_REQUEST",
     });
   }
+
   if (err.code === "P2025") {
-    return res
-      .status(404)
-      .json({ success: false, message: "Record not found", code: "NOT_FOUND" });
+    return res.status(404).json({
+      success: false,
+      message: "Record not found",
+      code: "NOT_FOUND",
+    });
   }
 
-  const status = err.status || 500;
-  res.status(status).json({
+  const status = err.status || err.statusCode || 500;
+  const safeStatus =
+    Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500;
+
+  const isProduction = process.env.NODE_ENV === "production";
+
+  return res.status(safeStatus).json({
     success: false,
-    message: err.message || "Internal server error",
-    code: err.code || "INTERNAL_ERROR",
+    message:
+      safeStatus >= 500 && isProduction
+        ? "Internal server error"
+        : err.message || "Request failed",
+    code: safeStatus >= 500 ? "INTERNAL_ERROR" : err.code || "REQUEST_ERROR",
   });
 });
 

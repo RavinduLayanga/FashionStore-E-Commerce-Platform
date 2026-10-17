@@ -5,7 +5,9 @@ export async function fetchCategories() {
     const res = await fetch(`${API_URL}/categories`, {
       next: { revalidate: 60 },
     });
+
     if (!res.ok) throw new Error("Failed to fetch categories");
+
     const json = await res.json();
     return json.data;
   } catch (error) {
@@ -17,10 +19,13 @@ export async function fetchCategories() {
 export async function fetchProducts(searchParams = {}) {
   try {
     const params = new URLSearchParams(searchParams);
+
     const res = await fetch(`${API_URL}/products?${params.toString()}`, {
       cache: "no-store",
     });
+
     if (!res.ok) throw new Error("Failed to fetch products");
+
     const json = await res.json();
 
     return {
@@ -35,10 +40,13 @@ export async function fetchProducts(searchParams = {}) {
 
 export async function fetchProduct(identifier) {
   try {
-    const res = await fetch(`${API_URL}/products/${identifier}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `${API_URL}/products/${encodeURIComponent(identifier)}`,
+      { cache: "no-store" },
+    );
+
     if (!res.ok) throw new Error("Failed to fetch product");
+
     const json = await res.json();
     return json.data;
   } catch (error) {
