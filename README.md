@@ -4,8 +4,8 @@ A full-stack clothing-store portfolio project built with **Next.js, React, Expre
 
 ## Live Demo
 
-**[Open the Fashion Store](https://fashion-store-lime-one.vercel.app/)**
-**[Open the Admin login](https://fashion-store-lime-one.vercel.app/admin/login)**
+- **[Open the Fashion Store](https://fashion-store-lime-one.vercel.app/)**
+- **[Open the Admin login](https://fashion-store-lime-one.vercel.app/admin/login)**
 
 The live site is a portfolio demonstration. Products, prices, and inventory are simulated; product imagery is illustrative. PayHere is configured for sandbox testing, not real customer payments. Do not enter real payment details or sensitive personal information.
 
@@ -31,16 +31,18 @@ The live site is a portfolio demonstration. Products, prices, and inventory are 
 
 - Admin authentication.
 - Review orders and approve eligible WhatsApp orders or cancel eligible pending orders.
-- Create and update products, categories, variants, prices, stock, and product status through the supported admin functionality.
+- Create and update products, variants, prices, stock, and product status through the admin interface.
 - View order-related dashboard summaries.
 
 ### Backend and data integrity
 
 - REST API organised into routes, controllers, services, validation, and middleware.
-- Server-side request validation with Zod.
-- Password hashing and JWT-based authentication using an HTTP-only cookie.
-- Security headers, CORS configuration, and rate limiting.
-- Prisma transactions and row-level locking for critical inventory/order operations.
+- Server-side request validation using Zod.
+- Admin authentication using JWTs stored in HTTP-only cookies, with role-based authorization.
+- Security headers with Helmet, credential-aware CORS configuration, and rate limiting on sensitive endpoints.
+- Origin checks on browser-facing authentication and admin mutation routes to help mitigate cross-site request risks.
+- Prisma transactions and row-level locking for critical inventory and order operations.
+- Centralized error handling with sanitized responses for unexpected production errors.
 
 ## Technology Stack
 
@@ -93,7 +95,7 @@ The backend is the authoritative layer for order totals, inventory reservations,
 
 ### Requirements
 
-- Node.js (Node.js 20 LTS is a reasonable starting point for this project)
+- Node.js 
 - npm
 - Docker with Docker Compose, or a PostgreSQL database
 - Git
@@ -120,6 +122,7 @@ Set the backend environment variables for your local database, JWT secret, initi
 From the repository root, start the included PostgreSQL service:
 
 ```bash
+cd ..
 docker compose up -d postgres
 ```
 
@@ -137,12 +140,21 @@ These are local development credentials only. Do not reuse them for a hosted or 
 The repository currently uses the Prisma schema without checked-in migration files. For a fresh, disposable development database, run from `backend/`:
 
 ```bash
-npx prisma db push
+cd backend
 npx prisma generate
+npx prisma db push
 npm run db:seed
 ```
 
 The seed script clears existing application records before recreating the initial admin and sample catalogue. **Only run it against a disposable database.** For a long-lived deployment, add and review Prisma migrations and establish a repeatable migration process.
+
+To populate a larger sample catalogue for testing storefront pagination and filtering, you can use the optional bulk seeder, if included in the repository:
+
+```bash
+node prisma/seed-bulk.js
+```
+
+**Important:** Run this only against a disposable development database. Review the script before running it because seed scripts may clear or recreate existing application records.
 
 ### 5. Configure and run the frontend
 
@@ -205,13 +217,33 @@ Critical order and inventory operations use database transactions and row-level 
 - **WhatsApp orders:** an order is created pending review with an active inventory reservation. An admin can approve or cancel an eligible order.
 - **PayHere:** the customer is directed through the sandbox payment flow. The backend verifies payment notifications before applying the corresponding payment/order transition.
 
+## Verifying Concurrency and Oversell Prevention
+
+The project includes a standalone concurrency test script that sends parallel order requests for the same product variant. It is intended to help verify that database-level locking and transactional inventory checks prevent multiple orders from reserving more stock than is available.
+
+With the backend running and a disposable test database configured, run:
+
+```bash
+cd backend
+node test-concurrency.js <variant-uuid> 15
+```
+
+Replace `<variant-uuid>` with a valid product variant ID. Ensure the test setup, request rate limits, and available stock are compatible with the number of concurrent requests.
+
+For a variant with five units available, the expected result is that no more than five units can be successfully reserved. The exact number of successful requests depends on the test setup and the inventory state at the time of execution.
+
+**Important:** Run this test only against a disposable development database. It creates orders or reservations and may modify database records.
+
+
 ## Configuration and Security
 
-The backend reads configuration from `backend/.env`; the frontend reads public configuration from `frontend/.env.local`. The example files document the variables required by each application.
+The backend reads configuration from `backend/.env`, while the frontend reads public configuration from `frontend/.env.local`. The example environment files document the variables required by each application.
 
-Keep real environment files and credentials out of version control. Values prefixed with `NEXT_PUBLIC_` are exposed to the browser and must never contain database credentials, JWT secrets, or the PayHere secret. Hosted deployments also need correctly configured CORS and cookie settings for the deployed frontend and API domains.
+For deployment, configure the frontend API URL to point to the hosted Express API and set the backend's allowed frontend origin to the exact deployed frontend origin. Cookie, CORS, and proxy settings must match the hosting environment.
 
-The project is a portfolio demo, not a claim of production readiness. Before handling real customer data or payments, it would need further testing and review of authentication, authorization, CSRF protections, payment callbacks, logging, monitoring, and deployment configuration.
+Keep real environment files and credentials out of version control. Values prefixed with `NEXT_PUBLIC_` are exposed to the browser and must never contain database credentials, JWT secrets, or the PayHere secret.
+
+The project is a portfolio demonstration, not a production-ready commerce system. Before handling real customer data or payments, it requires further security testing and review of authentication, authorization, CSRF protections, payment callback verification, logging, monitoring, and deployment configuration.
 
 ## Limitations and Roadmap
 
@@ -220,8 +252,8 @@ Potential future improvements include:
 - Automated unit and integration tests in the development workflow.
 - Checked-in Prisma migrations and a repeatable deployment migration process.
 - CI checks for linting, tests, and production builds.
-- Better operational logging, monitoring, and error reporting.
-- A security review covering authentication, CSRF protections, payment callbacks, and production cookie configuration.
+- Structured operational logging, monitoring, and error reporting.
+- Further security testing of authentication, authorization, CSRF protections, payment callback verification, and production cookie behaviour.
 - A deployed staging environment for checkout and inventory testing before any real-payment use.
 - Customer registration, login, and a customer dashboard for order history and tracking.
 - Staff account management and role-based permissions for order and inventory tasks.
